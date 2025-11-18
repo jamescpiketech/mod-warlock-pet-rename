@@ -107,12 +107,12 @@ public:
     bool OnGossipHello(Player* player, Creature* creature) override
     {
         if (player->getClass() != CLASS_WARLOCK)
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505WARLOCKS ONLY|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505Only Warlocks are allowed to use my services.|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
         else
         {
             Pet* pet = GetAllowedPetForRename(player);
             if (!pet)
-                AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505PLEASE SUMMON YOUR PET|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
+                AddGossipItemFor(player, GOSSIP_ICON_CHAT, "|cffb50505Please summon your pet.|r", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
             else
             {
                 AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Current pet: " + GetPetInfo(pet), GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
