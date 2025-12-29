@@ -8,6 +8,8 @@
 #include "Pet.h"
 #include "DatabaseEnv.h"
 #include "GameTime.h"
+#include "Chat.h"
+#include <cctype>
 
 class npc_warlock_pet_renamer : public CreatureScript
 {
@@ -29,32 +31,44 @@ private:
         name[0] = std::toupper(name[0]);
     }
 
-    static void HandlePetRename(Player* player, const char* nameStr)
+    static bool HandlePetRename(Player* player, const char* nameStr)
     {
         Pet* pet = GetAllowedPetForRename(player);
         if (!pet)
-            return;
+            return false;
 
         std::string name(nameStr);
+        // trim leading/trailing whitespace
+        while (!name.empty() && std::isspace(static_cast<unsigned char>(name.front())))
+            name.erase(name.begin());
+        while (!name.empty() && std::isspace(static_cast<unsigned char>(name.back())))
+            name.pop_back();
+
+        if (name.empty())
+        {
+            ChatHandler(player->GetSession()).SendNotification("INVALID - Use letters only with a maximum of 12 characters");
+            return false;
+        }
+
         NormalizeName(name);
 
         PetNameInvalidReason res = ObjectMgr::CheckPetName(name);
         if (res != PET_NAME_SUCCESS)
         {
             player->GetSession()->SendPetNameInvalid(res, name, nullptr);
-            return;
+            return false;
         }
 
         if (sObjectMgr->IsReservedName(name))
         {
             player->GetSession()->SendPetNameInvalid(PET_NAME_RESERVED, name, nullptr);
-            return;
+            return false;
         }
 
         if (sObjectMgr->IsProfanityName(name))
         {
             player->GetSession()->SendPetNameInvalid(PET_NAME_PROFANE, name, nullptr);
-            return;
+            return false;
         }
 
         pet->SetName(name);
@@ -67,6 +81,7 @@ private:
         CharacterDatabase.Execute(stmt);
 
         pet->SetUInt32Value(UNIT_FIELD_PET_NAME_TIMESTAMP, uint32(GameTime::GetGameTime().count())); // cast can't be helped
+        return true;
     }
 
     static std::string GetPetInfo(const Pet* pet)
@@ -116,7 +131,7 @@ public:
             else
             {
                 AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Current pet: " + GetPetInfo(pet), GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
-                AddGossipItemFor(player, GOSSIP_ICON_TALK, "Rename current pet", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3, "Type in your desired pet name in the next popup!", 0, true);
+                AddGossipItemFor(player, GOSSIP_ICON_TALK, "Rename current pet", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 3, "WARNING - Click ACCEPT instead of pressing ENTER", 0, true);
             }
         }
 
@@ -142,10 +157,17 @@ public:
         return false;
     }
 
-    bool OnGossipSelectCode(Player* player, Creature* /*creature*/, uint32 /*sender*/ , uint32 action, const char* code) override
+    bool OnGossipSelectCode(Player* player, Creature* creature, uint32 /*sender*/ , uint32 action, const char* code) override
     {
         if (action == GOSSIP_ACTION_INFO_DEF + 3)
-            HandlePetRename(player, code);
+        {
+            if (!HandlePetRename(player, code))
+            {
+                // keep gossip up so player can retry or cancel after seeing the error
+                OnGossipHello(player, creature);
+                return true;
+            }
+        }
 
         CloseGossipMenuFor(player);
         return true;
